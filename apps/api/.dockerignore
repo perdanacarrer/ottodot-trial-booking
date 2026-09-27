@@ -1,0 +1,8 @@
+node_modules
+dist
+dev.db
+dev.db-*
+tests/test.db
+tests/test.db-*
+.env
+*.log

@@ -1,39 +1,28 @@
-import { readFileSync } from 'node:fs';
-import { PrismaClient } from '@prisma/client';
+import Fastify from "fastify";
+import type { AppDatabase } from "./db.js";
+import { studentsRoutes } from "./routes/students.js";
+import { trialClassesRoutes } from "./routes/trialClasses.js";
+import { bookingsRoutes } from "./routes/bookings.js";
 
-// Keep runtime setup dependency-free: load the small local .env file created by db:setup.
-if (!process.env.DATABASE_URL) {
-  try {
-    const env = readFileSync(new URL('../../../.env', import.meta.url), 'utf8');
-    for (const line of env.split(/\r?\n/)) {
-      const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-      if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^\"|\"$/g, '');
+export function buildServer(db: AppDatabase) {
+  const app = Fastify({ logger: false });
+
+  app.get("/api/health", async () => ({ ok: true }));
+
+  app.register(studentsRoutes, { db });
+  app.register(trialClassesRoutes, { db });
+  app.register(bookingsRoutes, { db });
+
+  // Centralized error handler: anything not already caught and turned into
+  // a structured response by a route becomes a clean 500 instead of leaking
+  // stack traces.
+  app.setErrorHandler((error, _req, reply) => {
+    app.log?.error?.(error);
+    if (reply.statusCode && reply.statusCode !== 200 && reply.statusCode !== 500) {
+      return reply.send({ error: { code: "ERROR", message: error.message } });
     }
-  } catch {
-    // Prisma will report a clear configuration error if DATABASE_URL is absent.
-  }
+    return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Something went wrong." } });
+  });
+
+  return app;
 }
-import { buildApp } from './app.js';
-
-const prisma = new PrismaClient();
-const app = buildApp(prisma);
-const port = Number(process.env.API_PORT ?? 3000);
-
-const start = async () => {
-  try {
-    await app.listen({ port, host: '0.0.0.0' });
-  } catch (error) {
-    app.log.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  }
-};
-
-const shutdown = async () => {
-  await app.close();
-  await prisma.$disconnect();
-};
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
-start();

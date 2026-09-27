@@ -2,41 +2,20 @@
   "name": "ottodot-trial-booking",
   "private": true,
   "version": "1.0.0",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
   "scripts": {
-    "db:setup": "node scripts/db-setup.mjs",
-    "db:reset": "prisma migrate reset --force && prisma db seed",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "tsx apps/api/src/server.ts",
-    "dev:web": "npm --prefix apps/web run dev",
-    "build": "npm --prefix apps/web run build && tsc --noEmit -p apps/api/tsconfig.json",
-    "lint": "tsc --noEmit -p apps/api/tsconfig.json && npm --prefix apps/web run typecheck"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "@prisma/client": "6.19.0",
-    "@fastify/cors": "10.1.0",
-    "fastify": "5.4.0",
-    "zod": "4.1.5"
-  },
-  "devDependencies": {
-    "@types/node": "22.15.21",
-    "@vitejs/plugin-react": "4.4.1",
-    "concurrently": "9.1.2",
-    "prisma": "6.19.0",
-    "tsx": "4.19.4",
-    "typescript": "5.8.3",
-    "vite": "6.3.5",
-    "vitest": "3.2.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "@types/react": "19.1.2",
-    "@types/react-dom": "19.1.2"
+    "db:setup": "npm run db:setup --workspace apps/api",
+    "test": "npm test --workspace apps/api",
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:seed": "docker compose exec api npm run db:setup",
+    "docker:test": "docker compose exec api npm test"
   }
 }
