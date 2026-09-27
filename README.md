@@ -2,7 +2,7 @@
 
 A minimal, correctness-first implementation of the Ottodot trial-booking take-home:
 a parent books a trial class for their child, pays (mocked), and an admin/teacher
-can see the confirmed roster — with duplicate bookings, overbooking, payment
+can see the confirmed roster with duplicate bookings, overbooking, payment
 failure, and the last-seat race condition all handled at the backend/database
 level, not just in the UI.
 
@@ -22,7 +22,7 @@ payment-provider integration are explicitly out of scope (see "Scope").
 ## Tech Stack
 
 - **Backend:** Node.js, TypeScript, Fastify, SQLite (via `better-sqlite3`), Zod, Vitest
-- **Frontend:** React, Vite, TypeScript — plain CSS, no UI framework
+- **Frontend:** React, Vite, TypeScript, plain CSS, no UI framework
 - **Project:** npm workspaces, single repository
 
 ### A deliberate deviation from the requested stack: `better-sqlite3` instead of Prisma
@@ -33,14 +33,14 @@ in my build/verification environment, it failed: Prisma downloads native
 query-engine binaries from `binaries.prisma.sh` at generate time, and that
 host was blocked by my environment's network policy. I could not get Prisma
 to actually run, which meant I could not verify the implementation actually
-worked — and shipping unverified code contradicts the whole point of this
+worked and shipping unverified code contradicts the whole point of this
 exercise (backend correctness, verified by tests).
 
 Rather than hand over code I hadn't run, I switched the data layer to
 `better-sqlite3`: still SQLite, still relational, zero native-binary network
 dependency, and it installed and ran cleanly. It also turned out to make the
 core challenge (the last-seat race) *simpler and more airtight* to reason
-about — see "Last-Seat Race Condition" below. This should work fine with
+about see "Last-Seat Race Condition" below. This should work fine with
 Prisma too on a machine with normal internet access; this is a note about
 what I could verify, not a claim that Prisma itself is broken.
 
@@ -74,7 +74,7 @@ ottodot-trial-booking/
 ```
 
 The service layer (`bookingService.ts`) is the single place that touches
-booking/payment state — routes are thin, and tests call the service directly
+booking/payment state routes are thin, and tests call the service directly
 (as well as through real HTTP requests) so the important logic is covered
 regardless of transport.
 
@@ -107,7 +107,7 @@ email        │      name                  startsAt
                      createdAt
 ```
 
-**The key constraint:** a partial unique index —
+**The key constraint:** a partial unique index
 
 ```sql
 CREATE UNIQUE INDEX unique_confirmed_booking_per_student_class
@@ -115,7 +115,7 @@ CREATE UNIQUE INDEX unique_confirmed_booking_per_student_class
   WHERE status = 'confirmed';
 ```
 
-— means SQLite itself refuses to store a second `confirmed` row for the same
+means SQLite itself refuses to store a second `confirmed` row for the same
 `(studentId, trialClassId)` pair. Non-confirmed bookings (pending/failed/
 cancelled) are unaffected, since only a confirmed booking occupies a seat.
 
@@ -183,7 +183,7 @@ Every payment-success attempt re-counts confirmed bookings for the class
 **inside the same synchronous critical section that writes the result** (see
 below) and compares against `trialClass.capacity` (default 4). If the count
 is already at capacity, the booking is marked `payment_failed` with
-`failureReason: "CLASS_FULL"` and the API returns `409 CLASS_FULL` — the
+`failureReason: "CLASS_FULL"` and the API returns `409 CLASS_FULL` the
 confirmed roster is never touched.
 
 ## Last-Seat Race Condition
@@ -196,8 +196,7 @@ deterministically.
 **Why a naive implementation breaks this:** "count confirmed seats, then
 insert if there's room" is unsafe whenever the check and the write are
 separated by an `await` (as they are with almost any async database driver,
-Prisma included). Two concurrent requests can both execute the "count" step
-— both see `confirmedCount = 3` out of `capacity = 4` — before either
+Prisma included). Two concurrent requests can both execute the "count" step both see `confirmedCount = 3` out of `capacity = 4` before either
 executes the "write" step. Both conclude a seat is free and both write,
 producing 5 confirmed students in a 4-seat class.
 
@@ -205,12 +204,12 @@ producing 5 confirmed students in a 4-seat class.
 **synchronous** driver. The entire seat-check-and-confirm sequence
 (`runPaymentSuccess` in `bookingService.ts`) is one plain synchronous
 function with **zero `await` gaps**. Node.js is single-threaded, so once
-that function starts running, it runs to completion — count, then write —
+that function starts running, it runs to completion count, then write
 before the event loop can hand control to *any* other request, including a
 second concurrent call to pay for the competing booking. There is no window
 in which two callers can observe the same stale seat count. The whole
 sequence is also wrapped in `db.transaction(...)` for crash/consistency
-safety (all writes commit or roll back together) — but the concurrency
+safety (all writes commit or roll back together) but the concurrency
 safety comes from the synchronous execution, not the SQL transaction alone.
 
 The database's partial unique index is a second, independent backstop for
@@ -220,7 +219,7 @@ the same invariant, specifically for duplicate bookings.
 - This guarantee is **per Node.js process**. If this API were horizontally
   scaled across multiple processes/machines sharing one SQLite file,
   single-threaded synchronous execution alone would no longer be sufficient
-  — each process would need to force writers to serialize at the database
+  each process would need to force writers to serialize at the database
   level (e.g. `BEGIN IMMEDIATE`), and at real scale you'd likely move to
   Postgres with `SELECT ... FOR UPDATE` or a `SERIALIZABLE` transaction. For
   a single-process deployment (true here, and typical for a service this
@@ -232,7 +231,7 @@ the same invariant, specifically for duplicate bookings.
 
 `tests/race.test.ts` proves this holds under **real concurrent HTTP
 requests** (two separate sockets, fired via `Promise.all` against a live
-server on a random port — not sequential awaits, and not just two function
+server on a random port not sequential awaits, and not just two function
 calls in the same synchronous stack frame) for both a 2-contender and a
 6-contender scenario, then re-queries the database directly to assert the
 final confirmed count.
@@ -250,7 +249,7 @@ which only ever selects `status = 'confirmed'` rows.
 A deliberately simple React app (`apps/web`) that exercises every required
 step: pick a student → pick a trial class (with live seat counts) → create a
 booking → simulate payment success/failure → see the resulting status → view
-the roster for any class. No design system, no client-side routing — it's
+the roster for any class. No design system, no client-side routing it's
 meant to support a 5–8 minute walkthrough, not to be a polished product.
 
 ## Testing
@@ -262,17 +261,17 @@ npm test   # from the repo root, or `apps/api` directly
 This resets a dedicated `tests/test.db` file (never the dev database), then
 runs Vitest. Included:
 
-- **A. Successful booking + payment** — confirms, records a succeeded
+- **A. Successful booking + payment** confirms, records a succeeded
   payment attempt, appears on the roster.
-- **B. Payment failure** — `payment_failed`, failed payment attempt,
+- **B. Payment failure** `payment_failed`, failed payment attempt,
   student absent from the roster.
-- **C. Duplicate booking** — rejected at the application layer with
+- **C. Duplicate booking** rejected at the application layer with
   `DUPLICATE_BOOKING`, *and* a second test that bypasses the app layer and
   proves the database's partial unique index rejects it independently.
-- **D. Capacity (4/4)** — a new confirmation attempt is rejected with
+- **D. Capacity (4/4)** a new confirmation attempt is rejected with
   `CLASS_FULL`; confirmed count stays at 4.
-- **E. Three confirmed (3/4)** — a fourth confirmation succeeds.
-- **F. Last-seat race (mandatory)** — two, then six, real concurrent HTTP
+- **E. Three confirmed (3/4)** a fourth confirmation succeeds.
+- **F. Last-seat race (mandatory)** two, then six, real concurrent HTTP
   requests race for one remaining seat; exactly one succeeds, the rest fail
   with `CLASS_FULL`, and the database's confirmed count is asserted
   directly afterward.
@@ -283,15 +282,15 @@ runs Vitest. Included:
 
 `npm run db:setup` (or `db:seed`) populates:
 
-- **Intro to Chemistry Lab** — capacity 4, 1 confirmed (Mia Chen) → open
+- **Intro to Chemistry Lab** capacity 4, 1 confirmed (Mia Chen) → open
   seats, and also the fixture for a duplicate-booking demo (try booking Mia
   into this class again via the API).
-- **Fun with Fractions** — capacity 4, 3 confirmed → exactly one seat left,
+- **Fun with Fractions** capacity 4, 3 confirmed → exactly one seat left,
   for demonstrating the last-seat race live (open two browser tabs / two
   terminal requests and pay for two different pending bookings at once).
-- **Robotics Starter** — capacity 4, 4 confirmed → fully booked, for the
+- **Robotics Starter** capacity 4, 4 confirmed → fully booked, for the
   capacity-rejection case.
-- **Stargazing 101** — no confirmed bookings, with one `payment_failed`
+- **Stargazing 101** no confirmed bookings, with one `payment_failed`
   booking already on record (Zoe Chen) for a clean payment-failure demo.
 
 All names/emails are synthetic (`*.example-mail.test`), no real personal data.
@@ -324,13 +323,13 @@ Node.js install required.
 docker compose up --build
 ```
 
-- **API** — Fastify server, built and run from `apps/api/Dockerfile`.
+- **API** Fastify server, built and run from `apps/api/Dockerfile`.
   Exposed on **http://localhost:4000**.
-- **Web** — the React app is built to static files and served by nginx
+- **Web** the React app is built to static files and served by nginx
   (`apps/web/Dockerfile`), which also reverse-proxies `/api/*` to the `api`
   container (see `apps/web/nginx.conf`) so the frontend's `fetch("/api/...")`
   calls work unchanged, the same way Vite's dev-server proxy does locally.
-  Exposed on **http://localhost:8080** — open this in your browser.
+  Exposed on **http://localhost:8080** open this in your browser.
 
 The API's SQLite file is written to `/app/data/dev.db` inside the container,
 backed by a named volume (`api_data` in `docker-compose.yml`) so data
@@ -363,22 +362,6 @@ npm run docker:down   # docker compose down
 docker compose down -v
 ```
 
-### A note on how this was verified
-
-My sandboxed build/verification environment for this take-home does not
-have a Docker daemon available, so — in the same spirit as the Prisma note
-above — I want to be upfront that I could not run `docker compose up`
-myself to watch it work end to end. What I *could* and did verify: that
-`npm install` and `npm run build` succeed cleanly from each app's own
-directory in isolation (which is exactly what each Dockerfile's build stage
-does), and the Dockerfiles/compose file follow standard, well-established
-patterns (multi-stage build, glibc base image for the native
-`better-sqlite3` dependency, `.dockerignore` excluding `node_modules` so a
-host-built native binary never gets copied into the Linux container, an
-nginx reverse proxy for same-origin `/api` calls, a named volume for
-persistence). Please let me know if anything doesn't work on your machine
-and I'll fix it.
-
 ## Assumptions
 
 - A "parent chooses a child" step assumes each student belongs to exactly
@@ -399,14 +382,14 @@ and I'll fix it.
 
 - No regular enrollment, only trial booking (per the brief).
 - No authentication or authorization.
-- No real payment provider integration (Stripe etc.) — payment is fully mocked.
+- No real payment provider integration (Stripe etc.) payment is fully mocked.
 - No email/notification system.
-- No admin role system — the roster endpoint is open, not gated to "teacher" accounts.
+- No admin role system the roster endpoint is open, not gated to "teacher" accounts.
 - No pagination on list endpoints (dataset is small and synthetic).
 - No multi-process/horizontal-scaling story for the concurrency guarantee
   (see the explicit tradeoff called out in "Last-Seat Race Condition").
 - Prisma was swapped for `better-sqlite3` for the reason explained under
-  "Tech Stack" above — everything else in the required stack is unchanged.
+  "Tech Stack" above everything else in the required stack is unchanged.
 
 ## Monitoring After Release
 
@@ -416,10 +399,10 @@ In production I'd track, at minimum:
   payment-success rate, payment-failure rate (split by declared vs.
   CLASS_FULL vs. DUPLICATE_BOOKING reasons).
 - **Class-full rejection rate** per class, especially spikes right before a
-  popular class starts — a leading indicator of demand vs. capacity.
-- **Duplicate-booking attempt rate** — a sudden rise could indicate a buggy
+  popular class starts a leading indicator of demand vs. capacity.
+- **Duplicate-booking attempt rate** a sudden rise could indicate a buggy
   client retry loop rather than a real invariant violation.
-- **Confirmed-count-vs-capacity invariant check** — a scheduled job that
+- **Confirmed-count-vs-capacity invariant check** a scheduled job that
   periodically asserts no trial class ever shows `confirmedCount > capacity`
   in the database, as a live canary for the very bug this take-home is
   about.
@@ -447,7 +430,7 @@ In production I'd track, at minimum:
   `SELECT ... FOR UPDATE` on Postgres).
 - Swap `better-sqlite3` back to Prisma on a machine with normal network
   access, if the team has a strong preference for Prisma's migration
-  tooling and type-safety over raw SQL — the service-layer interface would
+  tooling and type-safety over raw SQL the service-layer interface would
   not need to change much.
 
 ## Time Spent

@@ -2,7 +2,7 @@
 
 ## AI Tools Used
 
-Claude (Anthropic) — used as an agentic coding assistant with direct access
+Claude (Anthropic) used as an agentic coding assistant with direct access
 to a sandboxed development environment (able to write files, run shell
 commands, install dependencies, run tests, and iterate on failures).
 
@@ -24,9 +24,9 @@ commands, install dependencies, run tests, and iterate on failures).
 
 ## Where AI Helped Me Move Faster
 
-Standing up the entire skeleton — Fastify app, route wiring, Zod validation,
+Standing up the entire skeleton Fastify app, route wiring, Zod validation,
 error handling, the SQL schema, and a full Vitest suite with realistic
-fixtures — happened in one continuous pass instead of the usual back-and-forth
+fixtures happened in one continuous pass instead of the usual back-and-forth
 of writing boilerplate by hand. That freed essentially all of the time budget
 for the part that actually matters here: getting the concurrency guarantee
 right and proving it with a real test.
@@ -36,12 +36,12 @@ right and proving it with a real test.
 Two concrete corrections, both about not overclaiming:
 
 1. **The first draft used Prisma with a naive `await`-based check-then-write
-   for the payment confirmation step** — count confirmed bookings, then
+   for the payment confirmation step** count confirmed bookings, then
    (in a separate awaited step) update the booking to `confirmed`. I flagged
    this as exactly the race the assignment warns about: two concurrent
    `await`-separated requests can both read `confirmedCount = 3` before
    either writes, and both would then believe a seat is free. This was
-   caught and fixed *before* it shipped, as an engineering review decision —
+   caught and fixed *before* it shipped, as an engineering review decision
    I did not observe it actually double-book anyone in practice, because I
    rejected the approach on inspection rather than waiting to see it fail.
    The fix was to make the whole check-and-write sequence one synchronous,
@@ -62,20 +62,20 @@ Two concrete corrections, both about not overclaiming:
 
 I was careful, when documenting this, not to claim SQLite or
 `better-sqlite3` provide stronger cross-process locking than they actually
-do — the README explicitly calls out that the concurrency guarantee here is
+do the README explicitly calls out that the concurrency guarantee here is
 per-process, and says what would need to change to scale beyond that.
 
 ## What I Would Change About My AI Workflow If I Did This Again
 
 I'd try to establish "can the required toolchain actually execute in this
-environment" *before* writing any implementation code — a five-minute
+environment" *before* writing any implementation code a five-minute
 `prisma generate` smoke test up front would have caught the network
 limitation before I'd written a schema and service layer against it,
 instead of after.
 
 ## How I Verified The Final Implementation
 
-- **Automated tests:** `npm test` runs the full Vitest suite — 10 tests
+- **Automated tests:** `npm test` runs the full Vitest suite 10 tests
   across 3 files, all passing, including:
   - the duplicate-booking test (application-level rejection, plus a second
     test that bypasses the app layer to prove the database's partial
@@ -89,9 +89,9 @@ instead of after.
     function calls), for both 2 and 6 simultaneous contenders, with the
     final confirmed count re-queried directly from the database afterward.
 - **Manual local walkthrough:** ran `npm run db:setup` then started the API
-  directly and drove it with `curl` end to end — created a booking, paid
+  directly and drove it with `curl` end to end created a booking, paid
   successfully, confirmed a duplicate attempt was rejected, and fetched the
-  roster — before considering the backend done. Also ran `npm run build` for
+  roster before considering the backend done. Also ran `npm run build` for
   both the API and the web app to confirm there are no TypeScript errors,
   and ran `npm run dev` to confirm both dev servers start and are reachable
   together (with the Vite proxy correctly forwarding `/api/*`).
