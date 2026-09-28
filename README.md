@@ -436,5 +436,6 @@ In production I'd track, at minimum:
 ## Time Spent
 
 Time spent: approximately 4 hours (including the mid-course pivot away from
-Prisma once its native-engine download was found to be blocked in my build
-environment).
+Prisma).
+
+## Demo Video
